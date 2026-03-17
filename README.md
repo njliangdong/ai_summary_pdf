@@ -73,6 +73,40 @@ python3 ai_studio_code.py -i ./pdf文献路径 --mode both
 
 ---
 
+## 📁 结果文件（Outputs）
+
+本脚本运行后将生成以下三类结果文件：
+
+### 📚 1. 提取的文献知识库
+
+`pathology_report.md`
+
+* 格式：Markdown
+* 说明：用于存储提取的文献知识点与结构化内容
+* 打开方式：可使用 Markdown 编辑器（如 Obsidian、Typora 等）
+
+---
+
+### 🌐 2. 文献网络图
+
+`plant_pathology_network.html`
+
+* 格式：HTML（交互式）
+* 说明：基于知识库构建的文献关系网络
+* 打开方式：直接使用浏览器打开
+
+---
+
+### 📊 3. 文献信息表
+
+`paper_summary_table.csv`
+
+* 格式：CSV
+* 说明：记录原始文献信息，并与任务中的文献编号建立对应关系
+
+---
+
+
 ## 备注
 
 本项目仍在持续优化中，欢迎根据自身科研需求进行二次开发与功能扩展。
