@@ -20,7 +20,7 @@ MODEL_NAME = "THUDM/glm-4-9b-chat"
 client = OpenAI(
     base_url='https://api.siliconflow.cn/v1',
     # 👇⚠️⚠️⚠️ 必须修改：换成你在硅基流动申请的真实 API Key (sk-开头)
-    api_key='sk-ezjisixkljiftxpkijtfdlnvegstlmxkoffcqxnrqyfrjbcy', 
+    api_key='sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 
     timeout=150.0 
 )
 
