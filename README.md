@@ -7,7 +7,7 @@
 将待阅读的pdf文件存储在一个文件夹下，将主脚本ai_studio_code.py至于该文件夹下，直接从终端开启运行
 
 # 大模型选择，务必在主脚本ai_studio_code.py中填写好自己的硅基流动 API key
-硅基流动平台免费大模型：THUDM/glm-4-9b-chat
+硅基流动平台免费大模型：THUDM/glm-4-9b-chat \n
 
 # 脚本运行前务必安装以下python扩展包
 brew install tesseract tesseract-lang
