@@ -13,15 +13,15 @@ import pytesseract
 from pdf2image import convert_from_path
 
 # ==========================================
-# 1. 大模型配置 (硅基流动 云端免费方案 GLM-4)
+# 1. 大模型配置 (OpenRouter 免费模型 healer-alpha)
 # ==========================================
-MODEL_NAME = "THUDM/glm-4-9b-chat" 
+MODEL_NAME = "openrouter/healer-alpha"
 
 client = OpenAI(
-    base_url='https://api.siliconflow.cn/v1',
-    # 👇⚠️⚠️⚠️ 必须修改：换成你在硅基流动申请的真实 API Key (sk-开头)
-    api_key='sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 
-    timeout=150.0 
+    base_url='https://openrouter.ai/api/v1',
+    # 👇⚠️⚠️⚠️ 必须修改：换成你在 OpenRouter 申请的真实 API Key
+    api_key=os.getenv("OPENROUTER_API_KEY", "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
+    timeout=150.0
 )
 
 # ==========================================
@@ -1223,7 +1223,6 @@ def main():
     OUTPUT_CSV = os.path.join(work_dir, "paper_summary_table.csv") # 新增 CSV 表格输出
     LOG_FILE = os.path.join(work_dir, "pathology_rag.log")
     LOG_FILE_RUN = os.path.join(work_dir, f"pathology_rag_{time.strftime('%Y%m%d_%H%M%S')}.log")
-    RUN_STATE_FILE = os.path.join(work_dir, "rag_run_state.json")
     global DEBUG_DIR
     DEBUG_DIR = os.path.join(work_dir, "debug_model_outputs")
 
@@ -1280,25 +1279,18 @@ def main():
     ])
 
     do_refresh = False
-    run_state = load_json(RUN_STATE_FILE, {})
-    last_processed_ids = set(run_state.get("processed_ids", []))
-    last_max_id = run_state.get("max_doc_id", 0)
-
     if args.mode in {"extract", "both"}:
-        if args.mode == "extract":
+        if args.refresh and not args.no_refresh:
+            do_refresh = True
+        elif args.no_refresh and not args.refresh:
             do_refresh = False
         else:
-            if args.refresh and not args.no_refresh:
-                do_refresh = True
-            elif args.no_refresh and not args.refresh:
-                do_refresh = False
+            if has_prior_outputs:
+                choice = input("检测到已有知识库/网络/列表，是否查漏补缺阅读？(y/n，默认n): ").strip().lower()
+                do_refresh = choice in {"y", "yes"}
             else:
-                if has_prior_outputs:
-                    choice = input("检测到已有知识库/网络/列表，是否查漏补缺阅读？(y/n，默认n): ").strip().lower()
-                    do_refresh = choice in {"y", "yes"}
-                else:
-                    logging.info("🆕 未检测到已有知识库/网络/列表，进入首次深入阅读模式。")
-                    do_refresh = True
+                logging.info("🆕 未检测到已有知识库/网络/列表，进入首次深入阅读模式。")
+                do_refresh = True
 
     files_to_process = []
     refresh_files = []
@@ -1308,11 +1300,6 @@ def main():
             info = metadata[fid]
             if info.get("status") == "pending":
                 files_to_process.append(fid)
-                continue
-            if args.mode == "extract":
-                # 仅处理新增文献：基于上次运行记录与文献编号
-                if fid not in last_processed_ids or doc_id_number(fid) > last_max_id:
-                    files_to_process.append(fid)
                 continue
             if do_refresh and info.get("status") == "processed":
                 missing = missing_categories(info)
@@ -1398,18 +1385,6 @@ def main():
     export_to_csv(metadata, OUTPUT_CSV)
     if args.mode == "both":
         build_network(all_knowledge, metadata, OUTPUT_HTML, title_suffix="综合知识网络")
-
-    if args.mode in {"extract", "both"}:
-        processed_ids = [fid for fid, info in metadata.items() if info.get("status") == "processed"]
-        max_id = 0
-        for fid in processed_ids:
-            max_id = max(max_id, doc_id_number(fid))
-        save_json({
-            "last_mode": args.mode,
-            "processed_ids": processed_ids,
-            "max_doc_id": max_id,
-            "last_run_time": time.strftime("%Y-%m-%d %H:%M:%S")
-        }, RUN_STATE_FILE)
     logging.info("--- 🎉 本次批处理执行完毕 ---")
 
 if __name__ == "__main__":
