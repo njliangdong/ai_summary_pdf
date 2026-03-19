@@ -26,7 +26,7 @@
 在运行脚本前，请务必在 `ai_studio_code.py` 中正确填写您的 API Key。
 
 推荐使用 OpenRouter 平台提供的免费大模型：
-OpenRouter/healer-alpha
+OpenRouter/free
 
 ---
 
