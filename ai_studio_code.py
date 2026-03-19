@@ -17,10 +17,13 @@ from pdf2image import convert_from_path
 # ==========================================
 MODEL_NAME = "openrouter/free"
 
+# ⚠️ 安全提醒：把 Key 写在代码里有泄露风险，请自行评估
+OPENROUTER_API_KEY = "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"
+
 client = OpenAI(
     base_url='https://openrouter.ai/api/v1',
     # 👇⚠️⚠️⚠️ 必须修改：换成你在 OpenRouter 申请的真实 API Key（请用环境变量）
-    api_key=os.getenv("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", ""),
+    api_key=OPENROUTER_API_KEY or os.getenv("OPENROUTER_API_KEY", ""),
     timeout=150.0
 )
 
