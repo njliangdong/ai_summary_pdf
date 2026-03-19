@@ -5,6 +5,7 @@ import time
 import argparse
 import logging
 import csv  # 新增：用于导出 Excel 兼容的表格
+import getpass
 import shutil
 import pdfplumber
 from pyvis.network import Network
@@ -13,19 +14,312 @@ import pytesseract
 from pdf2image import convert_from_path
 
 # ==========================================
-# 1. 大模型配置 (OpenRouter 免费模型路由器)
+# 1. 大模型配置
 # ==========================================
 MODEL_NAME = "openrouter/free"
+MODEL_PLATFORM = "openrouter"
+PLATFORM_BASE_URLS = {
+    "openrouter": "https://openrouter.ai/api/v1",
+    "siliconflow": "https://api.siliconflow.cn/v1"
+}
 
-# ⚠️ 安全提醒：把 Key 写在代码里有泄露风险，请自行评估
-OPENROUTER_API_KEY = "sk-or-v1-xxxxx"
+DEFAULT_PROMPT_SYSTEM = """很好，这个问题本质是在构建一套“科研级阅读代理（reading agent）提示词系统”，目标不是总结，而是**榨干论文中的全部可用知识**。我给你一套**分层递进 + 强制信息提取 + 防空话机制**的完整提示词体系，你可以直接用于任何大模型（API或本地）。
 
-client = OpenAI(
-    base_url='https://openrouter.ai/api/v1',
-    # 👇⚠️⚠️⚠️ 必须修改：换成你在 OpenRouter 申请的真实 API Key（请用环境变量）
-    api_key=OPENROUTER_API_KEY or os.getenv("OPENROUTER_API_KEY", ""),
-    timeout=150.0
-)
+---
+
+# 一、总体策略（核心原则）
+
+这套体系遵循 4 个原则：
+
+1. **先分类 → 再解构 → 再深挖 → 再重构**
+2. **每一步必须“结构化输出”，禁止泛化总结**
+3. **所有结论必须绑定证据（图、表、数据）**
+4. **持续追问直到无法再提取新信息**
+
+---
+
+# 二、Step 0：文献类型判定（必须第一步）
+
+### 提示词
+
+```
+请对该论文进行严格分类（只能选一个主类型）：
+1. 原创研究论文（Research Article）
+2. 综述论文（Review）
+3. 短通讯 / Letter
+4. 方法论文（Methods）
+5. 数据论文（Data Descriptor）
+
+并说明判断依据（必须引用论文结构或内容特征）。
+
+然后进一步细分领域：
+- 植物-病原互作
+- 分子机制
+- 生化代谢
+- 群体遗传 / 进化
+- 生物信息学
+- 抗病育种
+- 其他（说明）
+
+输出格式：
+【文献类型】：
+【研究领域】：
+【判断依据】：
+```
+
+---
+
+# 三、Step 1：研究问题“精准拆解”（避免空话）
+
+### 提示词
+
+```
+请从论文中提取“可验证的科学问题”，禁止泛泛总结：
+
+必须输出：
+1. 核心科学问题（1句话，必须具体到机制或现象）
+2. 子问题列表（逐条列出，每条必须可实验验证）
+3. 作者的假设（如果没有明确写出，请根据实验设计反推）
+
+要求：
+- 禁止使用“研究了……”、“探讨了……”等空话
+- 每个问题必须对应论文中的实验或分析
+
+输出格式：
+【核心问题】：
+【子问题1】：
+【子问题2】：
+【假设】：
+```
+
+---
+
+# 四、Step 2：实验体系全景解析（关键）
+
+### 提示词
+
+```
+请完整拆解论文的实验体系，按模块分类：
+
+必须包括：
+1. 生物材料（物种、菌株、突变体、来源）
+2. 实验体系类型（体内 / 离体 / 细胞 / 纯化体系）
+3. 感染模型（自然感染 / 人工接种 / 离体组织）
+4. 每个实验的“输入-处理-输出”
+
+关键要求：
+- 每个实验必须说明“在回答哪个科学问题”
+- 必须指出实验之间的逻辑关系（因果链）
+
+输出格式：
+【实验模块1】：
+- 目的：
+- 材料：
+- 方法：
+- 输出数据类型：
+
+【实验逻辑链】：
+A实验 → B实验 → C实验（说明因果）
+```
+
+---
+
+# 五、Step 3：图表级信息榨取（核心能力）
+
+### 提示词（极其重要）
+
+```
+逐图解析论文（Figure-by-Figure），不得遗漏任何图：
+
+每个图必须输出：
+1. 图的科学问题
+2. 实验设计（变量、对照、处理）
+3. 关键结果（必须量化或方向性描述）
+4. 作者结论
+5. 你的批判性判断（是否过度解释）
+
+禁止：
+- “该图说明了……”这种空话
+- 必须具体到数据趋势（上升/下降/无变化）
+
+输出格式：
+【Figure 1】：
+- 问题：
+- 设计：
+- 结果：
+- 结论：
+- 评价：
+```
+
+---
+
+# 六、Step 4：分子机制深挖（植物病理核心）
+
+### 提示词
+
+```
+请提取论文中的“分子机制链”，构建完整因果路径：
+
+要求：
+1. 所有关键基因/蛋白（列出名称 + 功能）
+2. 相互作用关系（谁调控谁）
+3. 信号通路位置（上游/下游）
+4. 实验证据来源（哪张图）
+
+必须输出“机制路径图（文字版）”：
+
+格式：
+A → B → C → 表型
+
+并补充：
+- 哪些是“直接证据”
+- 哪些是“推测”
+
+输出格式：
+【核心因子】：
+【作用关系】：
+【机制路径】：
+【证据等级】：
+```
+
+---
+
+# 七、Step 5：生化与代谢层解析
+
+### 提示词
+
+```
+如果论文涉及代谢或生化实验，请提取：
+
+1. 代谢物名称（必须具体）
+2. 变化趋势（↑ ↓）
+3. 相关酶或通路
+4. 与表型的关系
+
+要求：
+- 指出“代谢变化是否是因果还是相关”
+- 是否有功能验证（如补偿实验）
+
+输出：
+【代谢变化】：
+【通路】：
+【功能关系】：
+```
+
+---
+
+# 八、Step 6：生信分析拆解（你重点用）
+
+### 提示词
+
+```
+请拆解所有生信分析流程：
+
+1. 数据来源（RNA-seq / genome / SRA）
+2. 分析方法（DESeq2 / BLAST / GO / KEGG等）
+3. 参数或阈值（如 |log2FC|, p-value）
+4. 关键结果（基因数量/富集通路）
+
+必须指出：
+- 是否存在统计偏差
+- 是否有实验验证支撑
+
+输出：
+【数据类型】：
+【分析流程】：
+【关键结果】：
+【可靠性评价】：
+```
+
+---
+
+# 九、Step 7：创新点 vs 水分（非常关键）
+
+### 提示词
+
+```
+请识别论文的真实创新点：
+
+分成三类：
+1. 方法创新
+2. 机制创新
+3. 数据资源创新
+
+同时指出：
+- 哪些内容是“已有研究重复”
+- 哪些结论证据不足
+
+输出：
+【创新点】：
+【重复点】：
+【薄弱点】：
+```
+
+---
+
+# 十、Step 8：构建你的“可用知识库”
+
+### 提示词
+
+```
+请将论文转化为“可复用知识”：
+
+1. 可借鉴实验方法（具体到步骤）
+2. 可用模型或思路
+3. 可挖掘的新研究问题（至少5个）
+4. 可用于你研究领域（如真菌致病性）的关联点
+
+输出：
+【方法复用】：
+【新问题1】：
+【跨领域启发】：
+```
+
+---
+
+# 十一、终极压榨（防止遗漏）
+
+### 最后一轮提示词（非常重要）
+
+```
+请检查前面所有分析，列出：
+
+1. 仍未解释的结果
+2. 作者未讨论但重要的现象
+3. 可以进一步做的关键实验（至少3个）
+
+要求：
+必须基于论文具体内容，而不是泛泛建议
+```
+
+---
+
+# 十二、进阶用法（你这种科研强度建议这样用）
+
+你可以这样串起来（API）：
+
+```
+Step0 → Step1 → Step2 → Step3（循环每个figure）
+→ Step4 → Step5 → Step6 → Step7 → Step8 → Step9
+```
+
+---
+
+# 最核心的一句话总结
+
+这套体系的本质是：
+
+> **把论文从“故事”拆成“数据+因果+证据”，再重建为“你的知识系统”**
+
+---
+
+如果你愿意，我可以帮你**把这套提示词直接改成适用于OpenRouter / 本地模型（比如DeepSeek / Qwen）的自动化脚本版本（支持批量读PDF）**。
+"""
+
+PROMPT_SYSTEM_TEXT = None
+client = None
+RATE_LIMIT_RPM = 0
+LAST_REQUEST_TS = 0.0
 
 # ==========================================
 # 2. 实体分类与颜色映射字典
@@ -49,6 +343,127 @@ EXCLUDED_NETWORK_TYPES = {"微生物", "植物宿主", "生物过程"}
 # ==========================================
 
 DEBUG_DIR = None
+
+def load_prompt_system(prompt_file):
+    if prompt_file:
+        if not os.path.exists(prompt_file):
+            logging.error(f"❌ 提示词系统文件不存在: {prompt_file}")
+            return None
+        try:
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            if content:
+                logging.info(f"✅ 已加载提示词系统文件: {prompt_file}")
+            return content
+        except Exception as e:
+            logging.error(f"❌ 读取提示词系统失败: {e}")
+            return None
+    return DEFAULT_PROMPT_SYSTEM.strip()
+
+def prompt_for_api_key(platform):
+    env_key = os.getenv("MODEL_API_KEY", "").strip()
+    key = getpass.getpass(f"请输入 {platform} API Key（回车使用环境变量 MODEL_API_KEY）: ").strip()
+    if not key:
+        key = env_key
+    return key
+
+def resolve_api_key(args, platform):
+    if getattr(args, "api_key", ""):
+        return args.api_key.strip()
+    return prompt_for_api_key(platform)
+
+def init_client(api_key, platform):
+    global client
+    base_url = PLATFORM_BASE_URLS.get(platform, PLATFORM_BASE_URLS["openrouter"])
+    client = OpenAI(
+        base_url=base_url,
+        api_key=api_key,
+        timeout=150.0
+    )
+
+def resolve_platform_model(args):
+    platform = (args.platform or "openrouter").strip().lower()
+    if platform not in PLATFORM_BASE_URLS:
+        logging.warning(f"⚠️ 未识别的平台: {platform}，已回退到 openrouter。")
+        platform = "openrouter"
+    model = (args.model or "").strip()
+    if not model:
+        model = "openrouter/free" if platform == "openrouter" else "THUDM/glm-4-9b-chat"
+    return platform, model
+
+def preflight_model_check():
+    if client is None:
+        return False
+    test_messages = [
+        {"role": "system", "content": "你是一个严格的JSON生成器，只输出合法JSON对象。"},
+        {"role": "user", "content": "仅输出 JSON：{\"ok\": true}，不要任何多余内容。"}
+    ]
+    try:
+        throttle_by_rpm()
+        raw_resp = client.chat.completions.with_raw_response.create(
+            model=MODEL_NAME,
+            messages=test_messages,
+            temperature=0.0
+        )
+        response = raw_resp.parse()
+        raw_output = response.choices[0].message.content.strip()
+        parsed = safe_json_loads(raw_output)
+        if parsed is None or parsed.get("ok") is not True:
+            logging.error("❌ 预检失败：模型未按要求输出 JSON，可能不是聊天模型或不支持严格 JSON 输出。")
+            logging.error(f"   输出样例: {raw_output[:200]}")
+            return False
+        logging.info(f"✅ 模型可用性预检通过: {MODEL_PLATFORM}/{MODEL_NAME}")
+        return True
+    except Exception as e:
+        status = getattr(e, "status_code", None) or getattr(getattr(e, "response", None), "status_code", None)
+        payload = getattr(getattr(e, "response", None), "text", None)
+        if status == 404:
+            logging.error("❌ 预检失败(404)：模型不可用或被 Guardrails/隐私策略拦截。")
+            logging.error("   建议检查 OpenRouter 的 Privacy & Guardrails 设置、Provider/Model allowlist。")
+        elif status == 401:
+            logging.error("❌ 预检失败(401)：API Key 无效或权限不足。")
+        elif status == 429:
+            logging.error("❌ 预检失败(429)：请求过于频繁，请降低 --rpm 或稍后重试。")
+        else:
+            logging.error(f"❌ 预检失败：{e}")
+        if payload:
+            logging.error(f"   原始响应: {payload}")
+        return False
+
+def throttle_by_rpm():
+    global LAST_REQUEST_TS
+    if RATE_LIMIT_RPM <= 0:
+        return
+    interval = 60.0 / float(RATE_LIMIT_RPM)
+    now = time.monotonic()
+    if LAST_REQUEST_TS == 0.0:
+        LAST_REQUEST_TS = now
+        return
+    elapsed = now - LAST_REQUEST_TS
+    if elapsed < interval:
+        time.sleep(interval - elapsed)
+    LAST_REQUEST_TS = time.monotonic()
+
+def parse_rate_limit_wait(headers, attempt):
+    if not headers:
+        return None
+    retry_after = headers.get("retry-after") or headers.get("Retry-After")
+    if retry_after:
+        try:
+            return max(0.0, float(retry_after))
+        except Exception:
+            pass
+    reset = headers.get("x-ratelimit-reset") or headers.get("X-RateLimit-Reset")
+    if reset:
+        try:
+            reset_val = float(reset)
+            now = time.time()
+            if reset_val > now:
+                return max(0.0, reset_val - now)
+            return max(0.0, reset_val)
+        except Exception:
+            pass
+    return min(60.0, (2 ** attempt) + 0.5)
 
 def load_json(filepath, default_val):
     if os.path.exists(filepath):
@@ -543,12 +958,32 @@ def extract_text_hybrid(file_path, max_pages=12):
 
 def run_model(messages, temperature=0.1, debug_tag=None):
     try:
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            temperature=temperature
-        )
-        raw_output = response.choices[0].message.content.strip()
+        if client is None:
+            raise ValueError("OpenRouter client 未初始化，请先输入 API Key。")
+        raw_output = None
+        max_retries = 5
+        for attempt in range(max_retries + 1):
+            try:
+                throttle_by_rpm()
+                raw_resp = client.chat.completions.with_raw_response.create(
+                    model=MODEL_NAME,
+                    messages=messages,
+                    temperature=temperature
+                )
+                response = raw_resp.parse()
+                raw_output = response.choices[0].message.content.strip()
+                break
+            except Exception as e:
+                status = getattr(e, "status_code", None) or getattr(getattr(e, "response", None), "status_code", None)
+                headers = getattr(getattr(e, "response", None), "headers", None)
+                if status == 429 and attempt < max_retries:
+                    wait = parse_rate_limit_wait(headers, attempt)
+                    logging.warning(f"⚠️ 触发限流(429)，等待 {wait:.2f}s 后重试 ({attempt+1}/{max_retries})")
+                    time.sleep(wait)
+                    continue
+                raise
+        if raw_output is None:
+            raise ValueError("模型返回为空，无法解析。")
         parsed = safe_json_loads(raw_output)
         if parsed is not None:
             return parsed
@@ -556,15 +991,32 @@ def run_model(messages, temperature=0.1, debug_tag=None):
         # Attempt one-time repair with the model
         repair_system = "你是JSON修复器。请将输入内容修复为严格有效的JSON，只输出JSON。"
         repair_user = f"请修复以下内容为严格JSON，仅输出JSON：\n{raw_output}"
-        repair_response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": repair_system},
-                {"role": "user", "content": repair_user}
-            ],
-            temperature=0.0
-        )
-        repair_output = repair_response.choices[0].message.content.strip()
+        repair_output = None
+        for attempt in range(max_retries + 1):
+            try:
+                throttle_by_rpm()
+                repair_raw = client.chat.completions.with_raw_response.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": repair_system},
+                        {"role": "user", "content": repair_user}
+                    ],
+                    temperature=0.0
+                )
+                repair_response = repair_raw.parse()
+                repair_output = repair_response.choices[0].message.content.strip()
+                break
+            except Exception as e:
+                status = getattr(e, "status_code", None) or getattr(getattr(e, "response", None), "status_code", None)
+                headers = getattr(getattr(e, "response", None), "headers", None)
+                if status == 429 and attempt < max_retries:
+                    wait = parse_rate_limit_wait(headers, attempt)
+                    logging.warning(f"⚠️ 触发限流(429)，等待 {wait:.2f}s 后重试 ({attempt+1}/{max_retries})")
+                    time.sleep(wait)
+                    continue
+                raise
+        if repair_output is None:
+            raise ValueError("JSON 修复输出为空。")
         parsed = safe_json_loads(repair_output)
         if parsed is not None:
             return parsed
@@ -587,12 +1039,7 @@ def run_model(messages, temperature=0.1, debug_tag=None):
 
 def stage1_extract(input_text, file_id, refresh_mode=False, focus_categories=None):
     logging.info(f"🧠 阶段1候选事实抽取 (编号: {file_id})...")
-    system_msg = (
-        "你是一位顶尖的植物病理学与分子生物学科学家。"
-        "请阅读文献片段并提取三类知识点：分子机制、宏观表型/生态结果、生物信息学结论。"
-        "要求：所有知识点用中文；严格 JSON 输出，无任何 Markdown。"
-        "特别要求：为涉及基因/蛋白/核酸元件的实体标注所属物种，可多物种并列。"
-    )
+    system_msg = PROMPT_SYSTEM_TEXT or ""
     json_example = """必须输出 JSON 结构：
 {
     "paper_info": {
@@ -658,7 +1105,8 @@ def stage1_extract(input_text, file_id, refresh_mode=False, focus_categories=Non
     if refresh_mode and focus_categories:
         focus_text = "本次为查漏补缺，请优先补充以下缺失类别：" + "、".join(focus_categories) + "。避免重复已提取内容。\n"
     user_msg = (
-        f"文献编号：{file_id}\n\n"
+        f"文献编号：{file_id}\n"
+        "请严格只输出 JSON，不要附加解释或 Markdown。\n\n"
         "任务一：提取文献元数据。如果找不到填“未提供”。\n"
         "任务二：提取作者重点讨论或关键结论支撑的 1-3 篇核心参考文献。\n"
         "任务三：提取 10-20 条候选分子机制事实（允许更细碎）。实体分类仅限：\n"
@@ -678,16 +1126,7 @@ def stage1_extract(input_text, file_id, refresh_mode=False, focus_categories=Non
 
 def stage2_summarize(stage1_data, file_id):
     logging.info(f"🧠 阶段2机制凝练 (编号: {file_id})...")
-    system_msg = (
-        "你是一位严谨的分子机制综合专家。"
-        "请基于阶段1候选事实凝练为更少、更清晰的“分子机制块”。"
-        "要求：仅保留分子层面机制(蛋白分子/核酸元件/代谢物/化合物)，"
-        "剔除宽泛词(如 生物过程/免疫反应/感染过程/病原菌/植物/真菌/细菌 等)。"
-        "合并重复机制；若结论相反则保留并标注 stance=contradict。"
-        "输出严格 JSON，无任何 Markdown。"
-        "请为机制中的分子实体标注对应物种列表，若多物种均支持请全部列出。"
-        "机制功能必须有实验验证，单纯生信结论不要放入此处。"
-    )
+    system_msg = PROMPT_SYSTEM_TEXT or ""
     compact_stage1 = json.dumps(stage1_data, ensure_ascii=False)
     json_example = """请输出 JSON 结构：
 {
@@ -718,6 +1157,7 @@ def stage2_summarize(stage1_data, file_id):
 """
     user_msg = (
         f"文献编号：{file_id}\n"
+        "请严格只输出 JSON，不要附加解释或 Markdown。\n"
         "以下为阶段1候选事实 JSON：\n"
         f"{compact_stage1}\n\n"
     )
@@ -1208,12 +1648,33 @@ def export_to_markdown(all_data, metadata, output_md):
 # ==========================================
 
 def main():
-    parser = argparse.ArgumentParser(description="📚 硅基流动云端 RAG：高级分子机制提取工具")
+    parser = argparse.ArgumentParser(
+        description="📚 云端 RAG：文献知识点抽取与网络构建工具",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog=(
+            "示例用法：\n"
+            "  python3 ai_studio_code.py -i ./ --mode extract\n"
+            "  python3 ai_studio_code.py -i ./ --mode both\n"
+            "  python3 ai_studio_code.py -i ./ --mode extract --prompt-system-file ./prompt_system.txt\n"
+            "  python3 ai_studio_code.py -i ./ --mode extract --api-key sk-or-v1-xxxxxx\n"
+            "  python3 ai_studio_code.py -i ./ --mode extract --platform siliconflow --model THUDM/glm-4-9b-chat\n\n"
+            "说明：\n"
+            "  - 你可以用 --api-key 直接传入 Key；不提供时会提示输入，留空将读取环境变量 MODEL_API_KEY。\n"
+            "  - 需要限速时再设置 --rpm（默认 0=不限速）。\n"
+            "  - 模型需支持 chat/completions 并能稳定输出 JSON，否则预检会失败。\n"
+            "  - 不提供 --prompt-system-file 时将使用脚本内置提示词系统。\n"
+        )
+    )
     parser.add_argument("-i", "--input", default="./pdf_papers", help="指定存放 PDF 论文的文件夹路径")
+    parser.add_argument("--platform", choices=["openrouter", "siliconflow"], default="openrouter", help="模型平台：openrouter 或 siliconflow")
+    parser.add_argument("--model", default="", help="平台内具体模型名称（不填则使用默认）")
+    parser.add_argument("--api-key", default="", help="OpenRouter API Key（以 sk-or-v1- 开头，可选）")
+    parser.add_argument("--rpm", type=int, default=0, help="每分钟请求上限（0=不限制，建议 10-20）")
     parser.add_argument("--refresh", action="store_true", help="对已处理文献进行查漏补缺阅读")
     parser.add_argument("--no-refresh", action="store_true", help="只处理新增文献，不补全旧文献")
     parser.add_argument("--mode", choices=["extract", "network", "both"], default="extract",
                         help="运行模式：extract=只提取知识点并更新RAG/列表；network=仅重绘网络；both=提取后重绘网络")
+    parser.add_argument("--prompt-system-file", default="", help="自定义提示词系统文件路径（不填则使用内置系统）")
     args = parser.parse_args()
     
     work_dir = os.path.abspath(args.input)
@@ -1244,6 +1705,27 @@ def main():
     logging.info("="*65)
     logging.info(f"🚀 启动云端 RAG 3.0 (七彩节点+重点文献+Excel信息表) | 目录: {work_dir}")
     logging.info("="*65)
+
+    global PROMPT_SYSTEM_TEXT
+    PROMPT_SYSTEM_TEXT = load_prompt_system(args.prompt_system_file)
+    if args.mode in {"extract", "both"}:
+        if not PROMPT_SYSTEM_TEXT:
+            logging.error("❌ 提示词系统为空，无法继续抽取。")
+            return
+        global MODEL_NAME, MODEL_PLATFORM
+        MODEL_PLATFORM, MODEL_NAME = resolve_platform_model(args)
+        api_key = resolve_api_key(args, MODEL_PLATFORM)
+        if not api_key:
+            logging.error("❌ 未提供模型平台 API Key，已退出。")
+            return
+        init_client(api_key, MODEL_PLATFORM)
+        global RATE_LIMIT_RPM
+        RATE_LIMIT_RPM = max(0, int(args.rpm))
+        if RATE_LIMIT_RPM > 0:
+            logging.info(f"⏱️ 启用请求限速: {RATE_LIMIT_RPM} RPM")
+        if not preflight_model_check():
+            logging.error("❌ 模型预检未通过，已退出以避免批量失败。")
+            return
 
     all_knowledge = load_json(OUTPUT_JSON, [])
     all_knowledge, migrated = migrate_old_knowledge(all_knowledge, OUTPUT_JSON)
