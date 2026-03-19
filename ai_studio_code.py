@@ -13,14 +13,14 @@ import pytesseract
 from pdf2image import convert_from_path
 
 # ==========================================
-# 1. 大模型配置 (OpenRouter 免费模型 healer-alpha)
+# 1. 大模型配置 (OpenRouter 免费模型路由器)
 # ==========================================
-MODEL_NAME = "openrouter/healer-alpha"
+MODEL_NAME = "openrouter/free"
 
 client = OpenAI(
     base_url='https://openrouter.ai/api/v1',
-    # 👇⚠️⚠️⚠️ 必须修改：换成你在 OpenRouter 申请的真实 API Key
-    api_key=os.getenv("OPENROUTER_API_KEY", "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
+    # 👇⚠️⚠️⚠️ 必须修改：换成你在 OpenRouter 申请的真实 API Key（请用环境变量）
+    api_key=os.getenv("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", ""),
     timeout=150.0
 )
 
