@@ -23,303 +23,11 @@ PLATFORM_BASE_URLS = {
     "siliconflow": "https://api.siliconflow.cn/v1"
 }
 
-DEFAULT_PROMPT_SYSTEM = """很好，这个问题本质是在构建一套“科研级阅读代理（reading agent）提示词系统”，目标不是总结，而是**榨干论文中的全部可用知识**。我给你一套**分层递进 + 强制信息提取 + 防空话机制**的完整提示词体系，你可以直接用于任何大模型（API或本地）。
-
----
-
-# 一、总体策略（核心原则）
-
-这套体系遵循 4 个原则：
-
-1. **先分类 → 再解构 → 再深挖 → 再重构**
-2. **每一步必须“结构化输出”，禁止泛化总结**
-3. **所有结论必须绑定证据（图、表、数据）**
-4. **持续追问直到无法再提取新信息**
-
----
-
-# 二、Step 0：文献类型判定（必须第一步）
-
-### 提示词
-
-```
-请对该论文进行严格分类（只能选一个主类型）：
-1. 原创研究论文（Research Article）
-2. 综述论文（Review）
-3. 短通讯 / Letter
-4. 方法论文（Methods）
-5. 数据论文（Data Descriptor）
-
-并说明判断依据（必须引用论文结构或内容特征）。
-
-然后进一步细分领域：
-- 植物-病原互作
-- 分子机制
-- 生化代谢
-- 群体遗传 / 进化
-- 生物信息学
-- 抗病育种
-- 其他（说明）
-
-输出格式：
-【文献类型】：
-【研究领域】：
-【判断依据】：
-```
-
----
-
-# 三、Step 1：研究问题“精准拆解”（避免空话）
-
-### 提示词
-
-```
-请从论文中提取“可验证的科学问题”，禁止泛泛总结：
-
-必须输出：
-1. 核心科学问题（1句话，必须具体到机制或现象）
-2. 子问题列表（逐条列出，每条必须可实验验证）
-3. 作者的假设（如果没有明确写出，请根据实验设计反推）
-
-要求：
-- 禁止使用“研究了……”、“探讨了……”等空话
-- 每个问题必须对应论文中的实验或分析
-
-输出格式：
-【核心问题】：
-【子问题1】：
-【子问题2】：
-【假设】：
-```
-
----
-
-# 四、Step 2：实验体系全景解析（关键）
-
-### 提示词
-
-```
-请完整拆解论文的实验体系，按模块分类：
-
-必须包括：
-1. 生物材料（物种、菌株、突变体、来源）
-2. 实验体系类型（体内 / 离体 / 细胞 / 纯化体系）
-3. 感染模型（自然感染 / 人工接种 / 离体组织）
-4. 每个实验的“输入-处理-输出”
-
-关键要求：
-- 每个实验必须说明“在回答哪个科学问题”
-- 必须指出实验之间的逻辑关系（因果链）
-
-输出格式：
-【实验模块1】：
-- 目的：
-- 材料：
-- 方法：
-- 输出数据类型：
-
-【实验逻辑链】：
-A实验 → B实验 → C实验（说明因果）
-```
-
----
-
-# 五、Step 3：图表级信息榨取（核心能力）
-
-### 提示词（极其重要）
-
-```
-逐图解析论文（Figure-by-Figure），不得遗漏任何图：
-
-每个图必须输出：
-1. 图的科学问题
-2. 实验设计（变量、对照、处理）
-3. 关键结果（必须量化或方向性描述）
-4. 作者结论
-5. 你的批判性判断（是否过度解释）
-
-禁止：
-- “该图说明了……”这种空话
-- 必须具体到数据趋势（上升/下降/无变化）
-
-输出格式：
-【Figure 1】：
-- 问题：
-- 设计：
-- 结果：
-- 结论：
-- 评价：
-```
-
----
-
-# 六、Step 4：分子机制深挖（植物病理核心）
-
-### 提示词
-
-```
-请提取论文中的“分子机制链”，构建完整因果路径：
-
-要求：
-1. 所有关键基因/蛋白（列出名称 + 功能）
-2. 相互作用关系（谁调控谁）
-3. 信号通路位置（上游/下游）
-4. 实验证据来源（哪张图）
-
-必须输出“机制路径图（文字版）”：
-
-格式：
-A → B → C → 表型
-
-并补充：
-- 哪些是“直接证据”
-- 哪些是“推测”
-
-输出格式：
-【核心因子】：
-【作用关系】：
-【机制路径】：
-【证据等级】：
-```
-
----
-
-# 七、Step 5：生化与代谢层解析
-
-### 提示词
-
-```
-如果论文涉及代谢或生化实验，请提取：
-
-1. 代谢物名称（必须具体）
-2. 变化趋势（↑ ↓）
-3. 相关酶或通路
-4. 与表型的关系
-
-要求：
-- 指出“代谢变化是否是因果还是相关”
-- 是否有功能验证（如补偿实验）
-
-输出：
-【代谢变化】：
-【通路】：
-【功能关系】：
-```
-
----
-
-# 八、Step 6：生信分析拆解（你重点用）
-
-### 提示词
-
-```
-请拆解所有生信分析流程：
-
-1. 数据来源（RNA-seq / genome / SRA）
-2. 分析方法（DESeq2 / BLAST / GO / KEGG等）
-3. 参数或阈值（如 |log2FC|, p-value）
-4. 关键结果（基因数量/富集通路）
-
-必须指出：
-- 是否存在统计偏差
-- 是否有实验验证支撑
-
-输出：
-【数据类型】：
-【分析流程】：
-【关键结果】：
-【可靠性评价】：
-```
-
----
-
-# 九、Step 7：创新点 vs 水分（非常关键）
-
-### 提示词
-
-```
-请识别论文的真实创新点：
-
-分成三类：
-1. 方法创新
-2. 机制创新
-3. 数据资源创新
-
-同时指出：
-- 哪些内容是“已有研究重复”
-- 哪些结论证据不足
-
-输出：
-【创新点】：
-【重复点】：
-【薄弱点】：
-```
-
----
-
-# 十、Step 8：构建你的“可用知识库”
-
-### 提示词
-
-```
-请将论文转化为“可复用知识”：
-
-1. 可借鉴实验方法（具体到步骤）
-2. 可用模型或思路
-3. 可挖掘的新研究问题（至少5个）
-4. 可用于你研究领域（如真菌致病性）的关联点
-
-输出：
-【方法复用】：
-【新问题1】：
-【跨领域启发】：
-```
-
----
-
-# 十一、终极压榨（防止遗漏）
-
-### 最后一轮提示词（非常重要）
-
-```
-请检查前面所有分析，列出：
-
-1. 仍未解释的结果
-2. 作者未讨论但重要的现象
-3. 可以进一步做的关键实验（至少3个）
-
-要求：
-必须基于论文具体内容，而不是泛泛建议
-```
-
----
-
-# 十二、进阶用法（你这种科研强度建议这样用）
-
-你可以这样串起来（API）：
-
-```
-Step0 → Step1 → Step2 → Step3（循环每个figure）
-→ Step4 → Step5 → Step6 → Step7 → Step8 → Step9
-```
-
----
-
-# 最核心的一句话总结
-
-这套体系的本质是：
-
-> **把论文从“故事”拆成“数据+因果+证据”，再重建为“你的知识系统”**
-
----
-
-如果你愿意，我可以帮你**把这套提示词直接改成适用于OpenRouter / 本地模型（比如DeepSeek / Qwen）的自动化脚本版本（支持批量读PDF）**。
-"""
-
 PROMPT_SYSTEM_TEXT = None
 client = None
 RATE_LIMIT_RPM = 0
 LAST_REQUEST_TS = 0.0
+ALLOW_JSON_REPAIR = False
 
 # ==========================================
 # 2. 实体分类与颜色映射字典
@@ -337,6 +45,7 @@ ENTITY_COLORS = {
 
 ALLOWED_MECHANISM_TYPES = {"蛋白分子", "核酸元件", "代谢物", "化合物"}
 EXCLUDED_NETWORK_TYPES = {"微生物", "植物宿主", "生物过程"}
+EXCLUDED_NAME_TOKENS = {"植物", "病原", "病原菌", "真菌", "细菌", "病毒", "微生物", "宿主", "生物过程", "免疫", "感染"}
 
 # ==========================================
 # 3. 系统与工具函数
@@ -344,21 +53,41 @@ EXCLUDED_NETWORK_TYPES = {"微生物", "植物宿主", "生物过程"}
 
 DEBUG_DIR = None
 
-def load_prompt_system(prompt_file):
-    if prompt_file:
-        if not os.path.exists(prompt_file):
-            logging.error(f"❌ 提示词系统文件不存在: {prompt_file}")
+def extract_prompt_block(content, tag):
+    if not content:
+        return None
+    pattern = re.compile(rf"\[{tag}\](.*?)\[/\s*{tag}\]", re.DOTALL | re.IGNORECASE)
+    match = pattern.search(content)
+    if match:
+        return match.group(1).strip()
+    return None
+
+def load_prompt_system(prompt_file, read_mode):
+    if not prompt_file:
+        logging.error("❌ 未提供 --prompt-system-file，无法继续。")
+        return None
+    if not os.path.exists(prompt_file):
+        logging.error(f"❌ 提示词系统文件不存在: {prompt_file}")
+        return None
+    try:
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        if not content:
+            logging.error("❌ 提示词系统文件为空。")
             return None
-        try:
-            with open(prompt_file, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-            if content:
-                logging.info(f"✅ 已加载提示词系统文件: {prompt_file}")
-            return content
-        except Exception as e:
-            logging.error(f"❌ 读取提示词系统失败: {e}")
-            return None
-    return DEFAULT_PROMPT_SYSTEM.strip()
+        deep_block = extract_prompt_block(content, "DEEP")
+        quick_block = extract_prompt_block(content, "QUICK")
+        if read_mode == "quick" and quick_block:
+            logging.info(f"✅ 已加载快速阅读提示词: {prompt_file}")
+            return quick_block
+        if read_mode == "deep" and deep_block:
+            logging.info(f"✅ 已加载深度阅读提示词: {prompt_file}")
+            return deep_block
+        logging.warning("⚠️ 提示词系统未检测到 [DEEP]/[QUICK] 区块，已使用全文。")
+        return content
+    except Exception as e:
+        logging.error(f"❌ 读取提示词系统失败: {e}")
+        return None
 
 def prompt_for_api_key(platform):
     env_key = os.getenv("MODEL_API_KEY", "").strip()
@@ -390,6 +119,14 @@ def resolve_platform_model(args):
     if not model:
         model = "openrouter/free" if platform == "openrouter" else "THUDM/glm-4-9b-chat"
     return platform, model
+
+def log_doc_progress(current_idx, total_count, file_id):
+    if total_count <= 0:
+        return
+    bar_len = 24
+    filled = int(bar_len * current_idx / total_count)
+    bar = "#" * filled + "-" * (bar_len - filled)
+    logging.info(f"📊 阅读进度: [{bar}] {current_idx}/{total_count} {file_id}")
 
 def preflight_model_check():
     if client is None:
@@ -605,6 +342,31 @@ def merge_method_lists(methods_a, methods_b):
         merged.append({"method": method, "result": result})
     return merged
 
+def convert_stage1_facts_to_mechanisms(stage1_data):
+    mechanisms = []
+    facts = stage1_data.get("facts", []) if isinstance(stage1_data, dict) else []
+    for fact in facts:
+        if not isinstance(fact, dict):
+            continue
+        mechanisms.append({
+            "canonical_source": standardize_entity_name(fact.get("source_name", "")),
+            "canonical_source_type": normalize_entity_type(fact.get("source_type", "未知分类")),
+            "canonical_source_species": normalize_species_list(fact.get("source_species", [])),
+            "canonical_target": standardize_entity_name(fact.get("target_name", "")),
+            "canonical_target_type": normalize_entity_type(fact.get("target_type", "未知分类")),
+            "canonical_target_species": normalize_species_list(fact.get("target_species", [])),
+            "relation": fact.get("relation", "互作"),
+            "stance": fact.get("stance", "support"),
+            "mechanism_summary": fact.get("mechanism_context", "") or fact.get("significance", ""),
+            "evidence": {
+                "context": fact.get("mechanism_context", ""),
+                "quote": fact.get("original_quote", ""),
+                "significance": fact.get("significance", "")
+            },
+            "methods": merge_method_lists([], fact.get("methods", []))
+        })
+    return mechanisms
+
 def merge_species_lists(species_a, species_b):
     merged = []
     seen = set()
@@ -693,6 +455,14 @@ def is_allowed_mechanism_type(entity_type):
 
 def is_network_entity_type(entity_type):
     return entity_type not in EXCLUDED_NETWORK_TYPES
+
+def is_excluded_name(name):
+    if not name:
+        return True
+    for token in EXCLUDED_NAME_TOKENS:
+        if token in name:
+            return True
+    return False
 
 def normalize_entity_type(entity_type):
     if not entity_type:
@@ -988,7 +758,19 @@ def run_model(messages, temperature=0.1, debug_tag=None):
         if parsed is not None:
             return parsed
 
-        # Attempt one-time repair with the model
+        if not ALLOW_JSON_REPAIR:
+            if DEBUG_DIR and debug_tag:
+                os.makedirs(DEBUG_DIR, exist_ok=True)
+                raw_path = os.path.join(DEBUG_DIR, f"{debug_tag}_raw.txt")
+                try:
+                    with open(raw_path, "w", encoding="utf-8") as f:
+                        f.write(raw_output)
+                    logging.warning(f"⚠️ 已保存原始模型输出: {raw_path}")
+                except Exception as e:
+                    logging.warning(f"⚠️ 保存原始输出失败: {e}")
+            raise ValueError("JSON parsing failed (repair disabled).")
+
+        # Attempt one-time repair with the model (optional)
         repair_system = "你是JSON修复器。请将输入内容修复为严格有效的JSON，只输出JSON。"
         repair_user = f"请修复以下内容为严格JSON，仅输出JSON：\n{raw_output}"
         repair_output = None
@@ -1037,7 +819,7 @@ def run_model(messages, temperature=0.1, debug_tag=None):
         logging.error(f"❌ 模型请求/解析失败: {e}")
         return None
 
-def stage1_extract(input_text, file_id, refresh_mode=False, focus_categories=None):
+def stage1_extract(input_text, file_id, read_mode="deep", refresh_mode=False, focus_categories=None):
     logging.info(f"🧠 阶段1候选事实抽取 (编号: {file_id})...")
     system_msg = PROMPT_SYSTEM_TEXT or ""
     json_example = """必须输出 JSON 结构：
@@ -1104,8 +886,10 @@ def stage1_extract(input_text, file_id, refresh_mode=False, focus_categories=Non
     focus_text = ""
     if refresh_mode and focus_categories:
         focus_text = "本次为查漏补缺，请优先补充以下缺失类别：" + "、".join(focus_categories) + "。避免重复已提取内容。\n"
+    mode_note = "快速阅读：一次性输出完整结构化结果。" if read_mode == "quick" else "深度阅读第一阶段：先完成基础信息与候选事实提取。"
     user_msg = (
         f"文献编号：{file_id}\n"
+        f"{mode_note}\n"
         "请严格只输出 JSON，不要附加解释或 Markdown。\n\n"
         "任务一：提取文献元数据。如果找不到填“未提供”。\n"
         "任务二：提取作者重点讨论或关键结论支撑的 1-3 篇核心参考文献。\n"
@@ -1132,6 +916,11 @@ def stage2_summarize(stage1_data, file_id):
 {
     "paper_info": {...},
     "key_references": [...],
+    "deep_analysis": {
+        "main_results": "作者主要结果的深度解析（中文）",
+        "why": "作者为什么这么做（中文）",
+        "significance": "这些结果的意义（中文）"
+    },
     "mechanisms": [
         {
             "canonical_source": "归一化后的上游实体标准中文名",
@@ -1160,6 +949,8 @@ def stage2_summarize(stage1_data, file_id):
         "请严格只输出 JSON，不要附加解释或 Markdown。\n"
         "以下为阶段1候选事实 JSON：\n"
         f"{compact_stage1}\n\n"
+        "任务：对作者主要结果进行深度解析，并说明作者为什么这么做、这些结果的意义。\n"
+        "同时凝练并去重分子机制（保持 stance 冲突）。\n"
     )
     user_msg += json_example
     return run_model([
@@ -1167,24 +958,32 @@ def stage2_summarize(stage1_data, file_id):
         {"role": "user", "content": user_msg}
     ], debug_tag=f"{file_id}_stage2")
 
-def get_expert_insights(text, file_id, refresh_mode=False, focus_categories=None):
+def get_expert_insights(text, file_id, read_mode="deep", refresh_mode=False, focus_categories=None):
     if not text.strip():
         return None
     input_text = text[:18000]
-    stage1_data = stage1_extract(input_text, file_id, refresh_mode=refresh_mode, focus_categories=focus_categories)
+    stage1_data = stage1_extract(input_text, file_id, read_mode=read_mode, refresh_mode=refresh_mode, focus_categories=focus_categories)
     if not stage1_data:
         return None
     run_mechanism = not focus_categories or "mechanism" in (focus_categories or [])
-    if run_mechanism:
+    stage2_data = None
+    if read_mode == "quick":
+        stage2_data = {
+            "paper_info": stage1_data.get("paper_info", {}),
+            "key_references": stage1_data.get("key_references", []),
+            "mechanisms": convert_stage1_facts_to_mechanisms(stage1_data) if run_mechanism else []
+        }
+    else:
         stage2_data = stage2_summarize(stage1_data, file_id)
         if not stage2_data:
             return None
-    else:
-        stage2_data = {"paper_info": {}, "key_references": [], "mechanisms": []}
+        if not run_mechanism:
+            stage2_data["mechanisms"] = []
 
     paper_info = stage2_data.get("paper_info") or stage1_data.get("paper_info", {})
     key_refs = stage2_data.get("key_references") or stage1_data.get("key_references", [])
     mechanisms = stage2_data.get("mechanisms", [])
+    deep_analysis = stage2_data.get("deep_analysis", {}) if read_mode == "deep" else {}
     phenotype_points = normalize_generic_points(stage1_data.get("phenotype_points", []), "phenotype", file_id)
     bioinfo_points = normalize_generic_points(stage1_data.get("bioinfo_points", []), "bioinfo", file_id)
     species_map = build_species_map_from_stage1(stage1_data)
@@ -1244,7 +1043,8 @@ def get_expert_insights(text, file_id, refresh_mode=False, focus_categories=None
         "key_references": key_refs,
         "mechanisms": list(merged.values()),
         "phenotype_points": phenotype_points,
-        "bioinfo_points": bioinfo_points
+        "bioinfo_points": bioinfo_points,
+        "deep_analysis": deep_analysis
     }
 
 # ==========================================
@@ -1427,6 +1227,8 @@ def build_network(all_data, metadata, output_html, title_suffix="综合知识网
 
         if not src or not tgt:
             continue
+        if is_excluded_name(src) or is_excluded_name(tgt):
+            continue
         if not is_network_entity_type(src_type) or not is_network_entity_type(tgt_type):
             continue
 
@@ -1572,6 +1374,14 @@ def export_to_markdown(all_data, metadata, output_md):
             f.write(f"**文献索引**: {format_doc_index(file_id, metadata)}\n\n")
             f.write(f"**原始文件**: `{info.get('original_name')}`\n\n")
             f.write(f"**期刊**: {journal} | **年份**: {year} | **DOI**: [{doi}](https://doi.org/{doi})\n\n")
+
+            deep_analysis = info.get("deep_analysis", {})
+            if isinstance(deep_analysis, dict) and deep_analysis:
+                f.write("### 🧭 主要结果深度解析\n")
+                f.write(f"**核心结果解析**: {deep_analysis.get('main_results', '未提供')}\n\n")
+                f.write(f"**作者为什么这么做**: {deep_analysis.get('why', '未提供')}\n\n")
+                f.write(f"**意义**: {deep_analysis.get('significance', '未提供')}\n\n")
+                f.write("---\n\n")
             
             key_refs = info.get('key_references', [])
             if key_refs:
@@ -1655,26 +1465,29 @@ def main():
             "示例用法：\n"
             "  python3 ai_studio_code.py -i ./ --mode extract\n"
             "  python3 ai_studio_code.py -i ./ --mode both\n"
-            "  python3 ai_studio_code.py -i ./ --mode extract --prompt-system-file ./prompt_system.txt\n"
+            "  python3 ai_studio_code.py -i ./ --mode extract --prompt-system-file ./prompt_system.txt --read-mode deep\n"
             "  python3 ai_studio_code.py -i ./ --mode extract --api-key sk-or-v1-xxxxxx\n"
             "  python3 ai_studio_code.py -i ./ --mode extract --platform siliconflow --model THUDM/glm-4-9b-chat\n\n"
             "说明：\n"
+            "  - 必须提供 --prompt-system-file（支持 [DEEP]/[QUICK] 区块）。\n"
             "  - 你可以用 --api-key 直接传入 Key；不提供时会提示输入，留空将读取环境变量 MODEL_API_KEY。\n"
             "  - 需要限速时再设置 --rpm（默认 0=不限速）。\n"
             "  - 模型需支持 chat/completions 并能稳定输出 JSON，否则预检会失败。\n"
-            "  - 不提供 --prompt-system-file 时将使用脚本内置提示词系统。\n"
+            "  - quick 模式每篇文献只调用 1 次模型；deep 模式固定 2 次（不含可选修复）。\n"
         )
     )
-    parser.add_argument("-i", "--input", default="./pdf_papers", help="指定存放 PDF 论文的文件夹路径")
-    parser.add_argument("--platform", choices=["openrouter", "siliconflow"], default="openrouter", help="模型平台：openrouter 或 siliconflow")
-    parser.add_argument("--model", default="", help="平台内具体模型名称（不填则使用默认）")
-    parser.add_argument("--api-key", default="", help="OpenRouter API Key（以 sk-or-v1- 开头，可选）")
-    parser.add_argument("--rpm", type=int, default=0, help="每分钟请求上限（0=不限制，建议 10-20）")
-    parser.add_argument("--refresh", action="store_true", help="对已处理文献进行查漏补缺阅读")
-    parser.add_argument("--no-refresh", action="store_true", help="只处理新增文献，不补全旧文献")
+    parser.add_argument("-i", "--input", default="./pdf_papers", help="指定存放 PDF 论文的文件夹路径（可选）")
+    parser.add_argument("--platform", choices=["openrouter", "siliconflow"], default="openrouter", help="模型平台：openrouter 或 siliconflow（可选）")
+    parser.add_argument("--model", default="", help="平台内具体模型名称（可选，不填则使用默认）")
+    parser.add_argument("--api-key", default="", help="模型平台 API Key（可选，不填将提示输入）")
+    parser.add_argument("--rpm", type=int, default=0, help="每分钟请求上限（可选，0=不限制，建议 10-20）")
+    parser.add_argument("--refresh", action="store_true", help="对已处理文献进行查漏补缺阅读（可选）")
+    parser.add_argument("--no-refresh", action="store_true", help="只处理新增文献，不补全旧文献（可选）")
     parser.add_argument("--mode", choices=["extract", "network", "both"], default="extract",
-                        help="运行模式：extract=只提取知识点并更新RAG/列表；network=仅重绘网络；both=提取后重绘网络")
-    parser.add_argument("--prompt-system-file", default="", help="自定义提示词系统文件路径（不填则使用内置系统）")
+                        help="运行模式：extract=只提取知识点并更新RAG/列表；network=仅重绘网络；both=提取后重绘网络（可选）")
+    parser.add_argument("--read-mode", choices=["deep", "quick"], default="deep", help="阅读模式：deep=深度阅读；quick=快速阅读（可选）")
+    parser.add_argument("--prompt-system-file", required=True, help="提示词系统文件路径（必填）")
+    parser.add_argument("--allow-repair", action="store_true", help="允许 JSON 修复（会增加额外模型调用，可选）")
     args = parser.parse_args()
     
     work_dir = os.path.abspath(args.input)
@@ -1707,11 +1520,15 @@ def main():
     logging.info("="*65)
 
     global PROMPT_SYSTEM_TEXT
-    PROMPT_SYSTEM_TEXT = load_prompt_system(args.prompt_system_file)
+    PROMPT_SYSTEM_TEXT = load_prompt_system(args.prompt_system_file, args.read_mode)
     if args.mode in {"extract", "both"}:
         if not PROMPT_SYSTEM_TEXT:
             logging.error("❌ 提示词系统为空，无法继续抽取。")
             return
+        global ALLOW_JSON_REPAIR
+        ALLOW_JSON_REPAIR = bool(args.allow_repair)
+        if ALLOW_JSON_REPAIR:
+            logging.warning("⚠️ 已开启 JSON 修复：每篇文献可能多一次模型调用。")
         global MODEL_NAME, MODEL_PLATFORM
         MODEL_PLATFORM, MODEL_NAME = resolve_platform_model(args)
         api_key = resolve_api_key(args, MODEL_PLATFORM)
@@ -1808,7 +1625,9 @@ def main():
 
     logging.info(f"✨ 发现 {len(files_to_process)} 篇文献待处理/补全...")
 
-    for file_id in files_to_process:
+    total_files = len(files_to_process)
+    for idx, file_id in enumerate(files_to_process, 1):
+        log_doc_progress(idx, total_files, file_id)
         refresh_mode = file_id in refresh_files
         focus_categories = refresh_focus.get(file_id, [])
         if refresh_mode:
@@ -1817,12 +1636,13 @@ def main():
         target_path = os.path.join(work_dir, file_id)
         text = extract_text_hybrid(target_path, max_pages=6 if refresh_mode else 12)
         
-        result = get_expert_insights(text, file_id, refresh_mode=refresh_mode, focus_categories=focus_categories)
+        result = get_expert_insights(text, file_id, read_mode=args.read_mode, refresh_mode=refresh_mode, focus_categories=focus_categories)
         
         if result:
             mechanisms = result.get("mechanisms", [])
             phenotype_points = result.get("phenotype_points", [])
             bioinfo_points = result.get("bioinfo_points", [])
+            deep_analysis = result.get("deep_analysis", {})
             all_knowledge.extend(mechanisms + phenotype_points + bioinfo_points)
             metadata[file_id]["status"] = "processed"
             counts = count_by_ref_for_doc(all_knowledge, file_id)
@@ -1833,6 +1653,8 @@ def main():
             metadata[file_id].update(category_status_from_counts(metadata[file_id], zero_status=zero_status))
             metadata[file_id]["key_references"] = result.get("key_references", [])
             metadata[file_id]["paper_info"] = result.get("paper_info", {}) # 保存文献元数据
+            if deep_analysis:
+                metadata[file_id]["deep_analysis"] = deep_analysis
             
             if mechanisms or phenotype_points or bioinfo_points:
                 logging.info(
