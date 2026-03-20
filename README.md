@@ -25,8 +25,8 @@
 
 在运行脚本前，请务必在 `ai_studio_code.py` 中正确填写您的 API Key。
 
-推荐使用 siliconflow 平台提供的免费大模型：
-Qwen/Qwen3.5-4B
+推荐使用 openrouter 平台提供的免费大模型：
+stepfun/step-3.5-flash:free
 
 ---
 
@@ -51,11 +51,15 @@ pip install pdfplumber openai networkx pyvis pdf2image pytesseract
 ### 1. 仅提取知识并更新知识库
 
 python3 ai_studio_code.py \
-    -i ./pdf文献路径 \
-    --mode extract \
-    --platform siliconflow \
-    --model Qwen/Qwen3.5-4B \
-    --api-key sk-xxxxxxxxxxxxxx
+   -i ./pdf文献路径 \
+   --mode extract \
+   --read-mode deep \
+   --platform openrouter \
+   --model stepfun/step-3.5-flash:free \
+   --prompt-system-file prompt_system.txt \
+   --rpm 0 \
+   --api-key sk-or-v1-xxxxxxxxxxxxxxxxxxx
+   
 用于从 PDF 文献中提取关键信息，并构建或更新知识库与文献列表。
 
 ---
@@ -63,11 +67,14 @@ python3 ai_studio_code.py \
 ### 2. 仅构建文献关系网络图
 
 python3 ai_studio_code.py \
-    -i ./pdf文献路径 \
-    --mode network \
-    --platform siliconflow \
-    --model Qwen/Qwen3.5-4B \
-    --api-key sk-xxxxxxxxxxxxxx
+   -i ./pdf文献路径 \
+   --mode network \
+   --read-mode deep \
+   --platform openrouter \
+   --model stepfun/step-3.5-flash:free \
+   --prompt-system-file prompt_system.txt \
+   --rpm 0 \
+   --api-key sk-or-v1-xxxxxxxxxxxxxxxxxxx
 
 基于已有的 RAG 知识库，重新生成文献知识网络图。
 
@@ -76,11 +83,14 @@ python3 ai_studio_code.py \
 ### 3. 全流程执行（推荐）
 
 python3 ai_studio_code.py \
-    -i ./pdf文献路径 \
-    --mode both \
-    --platform siliconflow \
-    --model Qwen/Qwen3.5-4B \
-    --api-key sk-xxxxxxxxxxxxxx
+   -i ./pdf文献路径 \
+   --mode both \
+   --read-mode deep \
+   --platform openrouter \
+   --model stepfun/step-3.5-flash:free \
+   --prompt-system-file prompt_system.txt \
+   --rpm 0 \
+   --api-key sk-or-v1-xxxxxxxxxxxxxxxxxxx
     
 执行完整流程：
 文献解析 → 知识提取 → 知识库更新 → 网络图构建
